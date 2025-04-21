@@ -7,15 +7,15 @@ def extract_zip(zip_path, extract_to):
         zip_ref.extractall(extract_to)
 
 
-def load_data(data_folder):
+def load_data(extracted_folder, data_folder):
     """Loads extracted CSVs into Pandas DataFrames"""
     return {
-        "regions": pd.read_csv(f"{data_folder}/regions.csv"),
-        "countries": pd.read_csv(f"{data_folder}/countries.csv"),
-        "categories": pd.read_csv(f"{data_folder}/categories.csv"),
-        "companies": pd.read_csv(f"{data_folder}/companies.csv"),
-        "drugs": pd.read_csv(f"{data_folder}/drugs.csv"),
-        "category_sales": pd.read_csv(f"{data_folder}/category_sales.csv"),
-        "drug_rankings": pd.read_csv(f"{data_folder}/drug_rankings.csv"),
-        "sales_our_company": pd.read_csv(f"{data_folder}/sales_our_company.csv"),
+        "regions": pd.read_csv(f"{data_folder}/{extracted_folder}/regions.csv"),
+        "countries": pd.read_csv(f"{data_folder}/{extracted_folder}/countries.csv"),
+        "categories": pd.read_csv(f"{data_folder}/{extracted_folder}/categories.csv"),
+        "companies": pd.read_csv(f"{data_folder}/{extracted_folder}/companies.csv"),
+        "drugs": pd.read_csv(f"{data_folder}/{extracted_folder}/drugs.csv"),
+        "category_sales": pd.read_csv(f"{data_folder}/{extracted_folder}/category_sales.csv"),
+        "drug_rankings": pd.read_csv(f"{data_folder}/{extracted_folder}/drug_rankings.csv"),
+        "sales_our_company": pd.read_csv(f"{data_folder}/{extracted_folder}/sales_our_company.csv"),
     }

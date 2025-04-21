@@ -26,13 +26,14 @@ def main():
 
     # Step 2: Download zip to local downloads folder
     zip_path = download_file(zip_key, DOWNLOAD_FOLDER)
-    print("zip_path:", zip_path)
+    zip_extracted_folder = zip_key.replace(".zip", "")
+    print("zip_extracted_folder:", zip_extracted_folder)
 
     # Step 3: Extract to data folder
     extract_zip(zip_path, DATA_FOLDER)
 
     # Step 4: load the data from CSVs
-    data = load_data(DATA_FOLDER)  # Load CSVs
+    data = load_data(zip_extracted_folder, DATA_FOLDER)  # Load CSVs
 
     # Step 5: Save input data in database
     save_input_data_to_db(data)
