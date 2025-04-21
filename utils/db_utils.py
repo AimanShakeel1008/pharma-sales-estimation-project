@@ -10,14 +10,6 @@ DB_PASS = config['db']['password']
 DB_NAME = config['db']['database']
 DB_PORT = config['db']['port']
 
-conn = postgresql.connect(
-    host=DB_HOST,
-    port=DB_PORT,
-    database=DB_NAME,
-    user=DB_USER,
-    password=DB_PASS
-)
-
 # Column Mappings for each table
 column_mappings = {
     "regions": {
@@ -80,121 +72,183 @@ column_mappings = {
 
 
 def save_input_data_to_db(input_data):
-    for table_name, df in input_data.items():
-        print(f"📦 Inserting data into: {table_name} ...............")
-        cursor = conn.cursor()
-        mapping = column_mappings[table_name]
-        df = df.rename(columns=mapping)
+    global conn, cursor
+    try:
+        conn = postgresql.connect(
+            host=DB_HOST,
+            port=DB_PORT,
+            database=DB_NAME,
+            user=DB_USER,
+            password=DB_PASS
+        )
 
-        for _, row in df.iterrows():
-            columns = list(row.index)
-            values = [row[col] for col in columns]
+        for table_name, df in input_data.items():
+            print(f"📦 Inserting data into: {table_name} ...............")
+            cursor = conn.cursor()
+            mapping = column_mappings[table_name]
+            df = df.rename(columns=mapping)
 
-            # Define unique keys
-            if table_name == "regions":
-                keys = ["region_id"]
-            elif table_name == "countries":
-                keys = ["country_id"]
-            elif table_name == "companies":
-                keys = ["company_id"]
-            elif table_name == "categories":
-                keys = ["category_id"]
-            elif table_name == "drugs":
-                keys = ["drug_id"]
-            elif table_name == "drug_rankings":
-                keys = ["country_id", "quarter", "drug_id"]
-            elif table_name == "category_sales":
-                keys = ["country_id", "quarter", "category_id"]
-            elif table_name == "sales_our_company":
-                keys = ["drug_id", "country_id", "quarter"]
-            else:
-                raise Exception("Unknown table")
+            for _, row in df.iterrows():
+                columns = list(row.index)
+                values = [row[col] for col in columns]
 
-            placeholders = ', '.join(['%s'] * len(columns))
-            update_stmt = ', '.join([f"{col}=EXCLUDED.{col}" for col in columns if col not in keys])
-            insert_stmt = f"""
-                    INSERT INTO {table_name} ({', '.join(columns)})
-                    VALUES ({placeholders})
-                    ON CONFLICT ({', '.join(keys)}) DO UPDATE SET
-                    {update_stmt}
-                """
-            cursor.execute(insert_stmt, values)
-        conn.commit()
-        cursor.close()
-        print(f"✅ Inserted data into: {table_name} successfully.")
+                # Define unique keys
+                if table_name == "regions":
+                    keys = ["region_id"]
+                elif table_name == "countries":
+                    keys = ["country_id"]
+                elif table_name == "companies":
+                    keys = ["company_id"]
+                elif table_name == "categories":
+                    keys = ["category_id"]
+                elif table_name == "drugs":
+                    keys = ["drug_id"]
+                elif table_name == "drug_rankings":
+                    keys = ["country_id", "quarter", "drug_id"]
+                elif table_name == "category_sales":
+                    keys = ["country_id", "quarter", "category_id"]
+                elif table_name == "sales_our_company":
+                    keys = ["drug_id", "country_id", "quarter"]
+                else:
+                    raise Exception("Unknown table")
+
+                placeholders = ', '.join(['%s'] * len(columns))
+                update_stmt = ', '.join([f"{col}=EXCLUDED.{col}" for col in columns if col not in keys])
+                insert_stmt = f"""
+                        INSERT INTO {table_name} ({', '.join(columns)})
+                        VALUES ({placeholders})
+                        ON CONFLICT ({', '.join(keys)}) DO UPDATE SET
+                        {update_stmt}
+                    """
+                cursor.execute(insert_stmt, values)
+            conn.commit()
+            print(f"✅ Inserted data into: {table_name} successfully.")
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        conn.rollback()
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 
 def save_estimated_data_to_rds(df, table_name):
     """Save DataFrame to RDS"""
-    cursor = conn.cursor()
+    global conn, cursor
+    try:
+        conn = postgresql.connect(
+            host=DB_HOST,
+            port=DB_PORT,
+            database=DB_NAME,
+            user=DB_USER,
+            password=DB_PASS
+        )
 
-    # Define the column names (excluding 'id')
-    columns = [
-        "country_id", "country_name", "quarter", "category_id", "category_name",
-        "drug_id", "drug_name", "company_id", "company_name", "rank",
-        "mean_sales", "min_sales", "max_sales"
-    ]
+        cursor = conn.cursor()
 
-    # Create a comma-separated string of column names
-    column_str = ', '.join(columns)
-    # print("column_str:", column_str)
+        # Define the column names (excluding 'id')
+        columns = [
+            "country_id", "country_name", "quarter", "category_id", "category_name",
+            "drug_id", "drug_name", "company_id", "company_name", "rank",
+            "mean_sales", "min_sales", "max_sales"
+        ]
 
-    # Insert each row, excluding 'id'
-    for _, row in df.iterrows():
-        values = tuple(row[col] for col in columns)  # only values for specified columns
-        # print("values:",values)
-        sql = f"INSERT INTO {table_name} ({column_str}) VALUES {values}"
-        cursor.execute(sql)
-    # print("inserted successfully.")
+        # Create a comma-separated string of column names
+        column_str = ', '.join(columns)
+        # print("column_str:", column_str)
 
-    conn.commit()
-    conn.close()
+        # Insert each row, excluding 'id'
+        for _, row in df.iterrows():
+            values = tuple(row[col] for col in columns)  # only values for specified columns
+            sql = f"INSERT INTO {table_name} ({column_str}) VALUES {values}"
+            cursor.execute(sql)
+        conn.commit()
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        conn.rollback()
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 
 def save_country_sales_to_rds(df, table_name):
     """Save DataFrame to RDS"""
-    cursor = conn.cursor()
+    global conn, cursor
+    try:
+        conn = postgresql.connect(
+            host=DB_HOST,
+            port=DB_PORT,
+            database=DB_NAME,
+            user=DB_USER,
+            password=DB_PASS
+        )
 
-    # Define the column names (excluding 'id')
-    columns = [
-        "country_id", "country_name", "quarter", "total_revenue"
-    ]
+        cursor = conn.cursor()
 
-    # Create a comma-separated string of column names
-    column_str = ', '.join(columns)
-    # print("column_str:", column_str)
+        # Define the column names (excluding 'id')
+        columns = [
+            "country_id", "country_name", "quarter", "total_revenue"
+        ]
 
-    # Insert each row, excluding 'id'
-    for _, row in df.iterrows():
-        values = tuple(row[col] for col in columns)  # only values for specified columns
-        # print("values:",values)
-        sql = f"INSERT INTO {table_name} ({column_str}) VALUES {values}"
-        cursor.execute(sql)
-    # print("inserted successfully.")
+        # Create a comma-separated string of column names
+        column_str = ', '.join(columns)
 
-    conn.commit()
-    conn.close()
+        # Insert each row, excluding 'id'
+        for _, row in df.iterrows():
+            values = tuple(row[col] for col in columns)  # only values for specified columns
+            # print("values:",values)
+            sql = f"INSERT INTO {table_name} ({column_str}) VALUES {values}"
+            cursor.execute(sql)
+        conn.commit()
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        conn.rollback()
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 
 def save_country_category_sales_to_rds(df, table_name):
     """Save DataFrame to RDS"""
-    cursor = conn.cursor()
+    global conn, cursor
+    try:
+        conn = postgresql.connect(
+            host=DB_HOST,
+            port=DB_PORT,
+            database=DB_NAME,
+            user=DB_USER,
+            password=DB_PASS
+        )
 
-    # Define the column names (excluding 'id')
-    columns = [
-        "country_id", "country_name", "quarter", "category_id", "category_name", "total_revenue"
-    ]
+        cursor = conn.cursor()
 
-    # Create a comma-separated string of column names
-    column_str = ', '.join(columns)
-    # print("column_str:", column_str)
+        # Define the column names (excluding 'id')
+        columns = [
+            "country_id", "country_name", "quarter", "category_id", "category_name", "total_revenue"
+        ]
 
-    # Insert each row, excluding 'id'
-    for _, row in df.iterrows():
-        values = tuple(row[col] for col in columns)  # only values for specified columns
-        # print("values:",values)
-        sql = f"INSERT INTO {table_name} ({column_str}) VALUES {values}"
-        cursor.execute(sql)
+        # Create a comma-separated string of column names
+        column_str = ', '.join(columns)
+        # print("column_str:", column_str)
 
-    conn.commit()
-    conn.close()
+        # Insert each row, excluding 'id'
+        for _, row in df.iterrows():
+            values = tuple(row[col] for col in columns)  # only values for specified columns
+            # print("values:",values)
+            sql = f"INSERT INTO {table_name} ({column_str}) VALUES {values}"
+            cursor.execute(sql)
+
+        conn.commit()
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        conn.rollback()
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
