@@ -1,5 +1,7 @@
 import psycopg2 as postgresql
 import configparser
+from datetime import datetime
+
 
 config = configparser.ConfigParser()
 config.read('config/settings.ini')
@@ -243,6 +245,47 @@ def save_country_category_sales_to_rds(df, table_name):
             sql = f"INSERT INTO {table_name} ({column_str}) VALUES {values}"
             cursor.execute(sql)
 
+        conn.commit()
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        conn.rollback()
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+
+def update_status(quarter, status, message=None, completed=False):
+    global conn, cursor
+    try:
+        conn = postgresql.connect(
+            host=DB_HOST,
+            port=DB_PORT,
+            database=DB_NAME,
+            user=DB_USER,
+            password=DB_PASS
+        )
+
+        cursor = conn.cursor()
+
+        if status == 'In Progress':
+            # Insert a new status row
+            cursor.execute("""
+                INSERT INTO estimation_status (quarter, status, message)
+                VALUES (%s, %s, %s)
+            """, (quarter, status, message))
+        else:
+            # Update the latest record for this quarter
+            cursor.execute("""
+                UPDATE estimation_status
+                SET status = %s,
+                    message = %s,
+                    completed_at = %s
+                WHERE quarter = %s
+                ORDER BY started_at DESC
+                LIMIT 1
+            """, (status, message, datetime.now(), quarter))
         conn.commit()
     except Exception as e:
         print(f"Error occurred: {e}")

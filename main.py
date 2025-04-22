@@ -1,7 +1,10 @@
+import sys
+
 from estimation.estimation import sales_estimation
 import os
+import re
 
-from utils.db_utils import save_input_data_to_db
+from utils.db_utils import save_input_data_to_db, update_status
 from utils.s3_utils import get_latest_zip_file, download_file
 from utils.zip_utils import extract_zip, load_data
 
@@ -16,30 +19,45 @@ def prepare_directories():
 
 
 def main():
-    print("🚀 Starting Pharma Sales Estimation...")
+    global year_quarter
 
-    prepare_directories()
+    try:
+        # Step 1: Fetch latest zip key from S3
+        zip_key = get_latest_zip_file()
 
-    # Step 1: Fetch latest zip key from S3
-    zip_key = get_latest_zip_file()
-    print("zip_key:",zip_key)
+        match = re.search(r"\d{4}Q\d", zip_key)
 
-    # Step 2: Download zip to local downloads folder
-    zip_path = download_file(zip_key, DOWNLOAD_FOLDER)
-    zip_extracted_folder = zip_key.replace(".zip", "")
-    print("zip_extracted_folder:", zip_extracted_folder)
+        year_quarter = match.group()
 
-    # Step 3: Extract to data folder
-    extract_zip(zip_path, DATA_FOLDER)
+        print(f"🚀 Starting Pharma Sales Estimation for {year_quarter}...")
 
-    # Step 4: load the data from CSVs
-    data = load_data(zip_extracted_folder, DATA_FOLDER)  # Load CSVs
+        update_status(year_quarter, "In Progress")
 
-    # Step 5: Save input data in database
-    save_input_data_to_db(data)
+        prepare_directories()
 
-    # Step 6: run the estimation
-    sales_estimation(data)
+        # Step 2: Download zip to local downloads folder
+        zip_path = download_file(zip_key, DOWNLOAD_FOLDER)
+        zip_extracted_folder = zip_key.replace(".zip", "")
+
+        # Step 3: Extract to data folder
+        extract_zip(zip_path, DATA_FOLDER)
+
+        # Step 4: load the data from CSVs
+        data = load_data(zip_extracted_folder, DATA_FOLDER)  # Load CSVs
+
+        # Step 5: Save input data in database
+        save_input_data_to_db(data)
+
+        # Step 6: run the estimation
+        sales_estimation(data)
+
+        update_status(year_quarter, "Success", message="Estimation completed successfully.", completed=True)
+
+        print(f"✅ Pharma Sales Estimation completed for {year_quarter}.")
+
+    except Exception as e:
+        update_status(year_quarter, "Failed", message=str(e), completed=True)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
