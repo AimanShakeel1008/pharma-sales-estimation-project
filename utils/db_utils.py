@@ -282,9 +282,12 @@ def update_status(quarter, status, message=None, completed=False):
                 SET status = %s,
                     message = %s,
                     completed_at = %s
-                WHERE quarter = %s
-                ORDER BY started_at DESC
-                LIMIT 1
+                WHERE id = (
+                    SELECT id FROM estimation_status
+                    WHERE quarter = %s
+                    ORDER BY started_at DESC
+                    LIMIT 1
+                )
             """, (status, message, datetime.now(), quarter))
         conn.commit()
     except Exception as e:
